@@ -1,0 +1,2 @@
+bot email@example.com:password
+bot email1@example.com:password2
