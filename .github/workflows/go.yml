@@ -17,18 +17,23 @@ jobs:
       uses: actions/setup-go@v3.0.0
       with:
         go-version: 1.18.0-rc.1
-
-    - name: Build
+    - name: Build Windows
       env:
         GOOS: windows
         GOARCH: amd64
       run: go build -o auth-server.exe .
-    - name: Build
+    - name: Build Linux
       env:
         GOOS: linux
         GOARCH: amd64
       run: go build -o auth-server .
-    - name: Upload a Build Artifact
+    - name: Upload a Windows Build Artifact
       uses: actions/upload-artifact@v3.0.0
       with:
-        path: auth-server.*
+        name: linux-build
+        path: auth-server
+    - name: Upload a Linux Build Artifact
+      uses: actions/upload-artifact@v3.0.0
+      with:
+        name: windows-build
+        path: auth-server.exe
