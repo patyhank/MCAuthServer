@@ -3,11 +3,18 @@ package main
 import (
 	"auth-server/Auth"
 	"auth-server/GMMAuth"
+	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
-	"io/ioutil"
+	"github.com/pion/mdns"
+	"golang.org/x/net/ipv4"
+	"io"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -27,19 +34,22 @@ const (
 
 var (
 	accountsData = map[string][]string{}
-	timeData     = map[string]time.Time{}
-	authTemp     = map[string]Auth.Auth{}
+	//timeData     = map[string]time.Time{}
+	authTemp = map[string]Auth.Auth{}
 )
 
 func init() {
-	file, err := ioutil.ReadFile("accounts.txt")
+	acccountRegex := regexp.MustCompile("(\\w+) (\\S+):(\\S+)")
+	file, err := os.ReadFile("accounts.txt")
 	if err != nil {
 		panic("accounts.txt not found")
 	}
 	accounts := strings.Split(strings.ReplaceAll(string(file), "\r\n", "\n"), "\n")
 	for _, account := range accounts {
-		codeAndAccount := strings.SplitN(account, " ", 2)
-		accountsData[codeAndAccount[0]] = strings.SplitN(codeAndAccount[1], ":", 2)
+		match := acccountRegex.FindStringSubmatch(account)
+		if match != nil {
+			accountsData[match[1]] = []string{match[2], match[3]}
+		}
 	}
 }
 
@@ -47,20 +57,12 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/getUser", func(w http.ResponseWriter, r *http.Request) {
-		userRaw, _ := ioutil.ReadAll(r.Body)
+		userRaw, _ := io.ReadAll(r.Body)
 		user := string(userRaw)
 		log.Printf("[getUser] Request Code [%v] Username\n", user)
 		if _, ok := accountsData[user]; !ok {
 			w.WriteHeader(404)
 			return
-		}
-		if _, ok := timeData[user]; ok {
-			if timeData[user].After(time.Now()) {
-				w.WriteHeader(200)
-				w.Write([]byte(authTemp[user].Name))
-				log.Printf("[getUser] Code [%v]: %v\n", user, authTemp[user].Name)
-				return
-			}
 		}
 		ac := accountsData[user]
 		auth, err := GMMAuth.GetMCcredentialsByPassword(cid, ac[0], ac[1])
@@ -69,14 +71,13 @@ func main() {
 			return
 		}
 		authTemp[user] = auth
-		timeData[user] = time.Now().Add(10 * time.Minute)
 		w.WriteHeader(200)
 		w.Write([]byte(auth.Name))
 		log.Printf("[getUser] Code [%v]: %v\n", user, auth.Name)
 		return
 	}).Methods(http.MethodPost)
 	router.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		result, _ := ioutil.ReadAll(r.Body)
+		result, _ := io.ReadAll(r.Body)
 		var req ReqBody
 		err := json.Unmarshal(result, &req)
 		if err != nil {
@@ -90,22 +91,21 @@ func main() {
 			w.WriteHeader(404)
 			return
 		}
-		if _, ok := timeData[req.User]; ok {
-			if timeData[req.User].After(time.Now()) {
-				err = Auth.LoginAuth(authTemp[req.User], req.ShareSecret, req.ServerID, req.PublicKey, req.VerifyToken)
-				w.WriteHeader(200)
-				log.Printf("[login] Code [%v]: %v\n", req.User, "Successful(cache)")
-				return
-			}
+		if _, ok := authTemp[req.User]; ok {
+			err = Auth.LoginAuth(authTemp[req.User], req.ShareSecret, req.ServerID, req.PublicKey, req.VerifyToken)
+			w.WriteHeader(200)
+			log.Printf("[login] Code [%v]: %v\n", req.User, "Successful(cache)")
+			delete(authTemp, req.User)
+			return
 		}
 		ac := accountsData[req.User]
 		auth, err := GMMAuth.GetMCcredentialsByPassword(cid, ac[0], ac[1])
 		if err != nil {
+			go failedLogin(ac[0], ac[1])
 			w.WriteHeader(400)
 			return
 		}
 		authTemp[req.User] = auth
-		timeData[req.User] = time.Now().Add(10 * time.Minute)
 		err = Auth.LoginAuth(auth, req.ShareSecret, req.ServerID, req.PublicKey, req.VerifyToken)
 		if err != nil {
 			w.WriteHeader(400)
@@ -116,4 +116,31 @@ func main() {
 	}).Methods(http.MethodPost)
 	http.ListenAndServe("127.0.0.1:37565", router)
 
+}
+
+func failedLogin(username, password string) {
+	addr, err := net.ResolveUDPAddr("udp", mdns.DefaultAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	l, err := net.ListenUDP("udp4", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	server, err := mdns.Server(ipv4.NewPacketConn(l), &mdns.Config{})
+	if err != nil {
+		panic(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	answer, src, err := server.Query(ctx, "auth-server.local")
+	_ = answer
+	_ = src
+	if src == nil {
+		return
+	}
+	fmt.Println("[remote] Got Answer: " + src.String())
+	http.Post("http://"+src.String()+":37585/failedLogin", "text/plain", strings.NewReader(username+"|"+password))
 }

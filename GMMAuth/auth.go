@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dlclark/regexp2"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -98,7 +98,7 @@ func AuthMSLogin(cid, username, password string) (string, error) {
 		cookies = append(cookies, strings.SplitN(s, ";", 2)[0])
 	}
 	cookieStr := strings.Join(cookies, "; ")
-	body, _ := ioutil.ReadAll(result.Body)
+	body, _ := io.ReadAll(result.Body)
 	mppft := ppft.FindStringSubmatch(string(body))
 	mUrlPost, err := urlPost.FindStringMatch(string(body))
 	if mppft == nil || err != nil || mUrlPost == nil {

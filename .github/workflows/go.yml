@@ -21,19 +21,29 @@ jobs:
       env:
         GOOS: windows
         GOARCH: amd64
-      run: go build -o auth-server.exe .
+      run: go build -o auth-server.exe . && go build -o ./LoginNotify/LoginNotify.exe ./LoginNotify
     - name: Build Linux
       env:
         GOOS: linux
         GOARCH: amd64
-      run: go build -o auth-server .
+      run: go build -o auth-server . && go build -o ./LoginNotify/LoginNotify ./LoginNotify
     - name: Upload a Windows Build Artifact
       uses: actions/upload-artifact@v3.0.0
       with:
-        name: linux-build
+        name: linux-build.zip
         path: auth-server
+    - name: Upload a Windows Build Artifact
+      uses: actions/upload-artifact@v3.0.0
+      with:
+        name: linux-build-notify.zip
+        path: LoginNotify/LoginNotify
     - name: Upload a Linux Build Artifact
       uses: actions/upload-artifact@v3.0.0
       with:
         name: windows-build
         path: auth-server.exe
+    - name: Upload a Windows Build Artifact
+      uses: actions/upload-artifact@v3.0.0
+      with:
+        name: windows-build
+        path: LoginNotify/LoginNotify.exe
