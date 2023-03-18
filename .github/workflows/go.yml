@@ -30,12 +30,12 @@ jobs:
     - name: Upload a Windows Build Artifact
       uses: actions/upload-artifact@v3.0.0
       with:
-        name: linux-build.zip
+        name: linux-build
         path: auth-server
     - name: Upload a Windows Build Artifact
       uses: actions/upload-artifact@v3.0.0
       with:
-        name: linux-build-notify.zip
+        name: linux-build
         path: LoginNotify/LoginNotify
     - name: Upload a Linux Build Artifact
       uses: actions/upload-artifact@v3.0.0
