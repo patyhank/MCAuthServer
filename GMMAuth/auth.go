@@ -73,15 +73,12 @@ func RefreshMSCode(code, cid string) (auth *MSauth, err error) {
 	return
 }
 
-func AuthMSLogin(cid, username, password string) (string, error) {
+func AuthMSLogin(username, password string) (string, error) {
 	client := http.DefaultClient
 	ppft := regexp.MustCompile("sFTTag:[ ]?'.*value=\"(.*)\"/>'")
 	urlPost := regexp2.MustCompile("urlPost:[ ]?'(.+?(?='))", 0)
 	code := regexp2.MustCompile("[?|&]code=([\\w.-]+)", 0)
 	loginEndpoint := fmt.Sprintf("https://login.live.com/oauth20_authorize.srf?redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=code&locale=en&client_id=%v", "000000004C12AE6F")
-	if cid == "" {
-		cid = os.Getenv(AzureClientIDEnvVar)
-	}
 	req, _ := http.NewRequest("GET", loginEndpoint, nil)
 	result, err := client.Do(req)
 	if err != nil {
@@ -348,9 +345,9 @@ func GetMCprofile(token string) (Auth, error) {
 }
 
 // GetMCcredentialsByPassword From 0 to Minecraft Auth with cache using password flow
-func GetMCcredentialsByPassword(cid, username, password string) (Auth, error) {
+func GetMCcredentialsByPassword(username, password string) (Auth, error) {
 	var resauth Auth
-	refreshToken, err := AuthMSLogin(cid, username, password)
+	refreshToken, err := AuthMSLogin(username, password)
 	if err != nil {
 		return Auth{}, err
 	}
