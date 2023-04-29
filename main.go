@@ -248,7 +248,7 @@ func main() {
 
 	})
 
-	r.GET("/getUser", func(c *gin.Context) {
+	r.POST("/getUser", func(c *gin.Context) {
 		reloadAccount()
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(c.Request.Body)
@@ -260,10 +260,10 @@ func main() {
 			return
 		}
 		authTemp[user] = auth
-		c.String(200, "text/plain", auth.Name)
+		c.Data(200, "text/plain", []byte(auth.Name))
 		log.Printf("[getUser] Code [%v]: %v\n", user, auth.Name)
 	})
-	r.GET("/login", func(c *gin.Context) {
+	r.POST("/login", func(c *gin.Context) {
 		reloadAccount()
 		result, _ := io.ReadAll(c.Request.Body)
 		var req ReqBody
