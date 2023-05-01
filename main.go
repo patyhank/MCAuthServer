@@ -147,6 +147,20 @@ func main() {
 			})
 			return
 		}
+		if auth, ok := authTemp[payload.UserName]; ok {
+			profile := Profile{
+				ID:   auth.UUID,
+				Name: auth.Name,
+			}
+			c.JSON(200, authResp{
+				Tokens: Tokens{
+					AccessToken: payload.UserName,
+					ClientToken: "",
+				},
+				AvailableProfiles: []Profile{profile},
+				SelectedProfile:   profile,
+			})
+		}
 		auth, err := GMMAuth.GetMCcredentialsByPassword(ac[0], ac[1])
 		if err != nil {
 			c.AbortWithStatusJSON(400, gin.H{
@@ -163,7 +177,7 @@ func main() {
 		c.JSON(200, authResp{
 			Tokens: Tokens{
 				AccessToken: payload.UserName,
-				ClientToken: payload.UserName,
+				ClientToken: "",
 			},
 			AvailableProfiles: []Profile{profile},
 			SelectedProfile:   profile,
@@ -218,13 +232,11 @@ func main() {
 				SelectedProfile: strings.ReplaceAll(authTemp[req.AccessToken].UUID, "-", ""),
 				ServerID:        req.ServerID,
 			})
-			if err != nil {
-				c.AbortWithStatus(403)
+			if err == nil {
+				c.Status(204)
+				log.Printf("[login] Code [%v]: %v\n", req.AccessToken, "Successful(cache)")
 				return
 			}
-			c.Status(204)
-			log.Printf("[login] Code [%v]: %v\n", req.AccessToken, "Successful(cache)")
-			return
 		}
 		auth, err := GMMAuth.GetMCcredentialsByPassword(ac[0], ac[1])
 		if err != nil {
@@ -256,6 +268,7 @@ func main() {
 		ac := accountsData[user]
 		auth, err := GMMAuth.GetMCcredentialsByPassword(ac[0], ac[1])
 		if err != nil {
+			fmt.Println(err)
 			c.AbortWithStatus(400)
 			return
 		}
